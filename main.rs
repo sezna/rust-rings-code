@@ -96,9 +96,18 @@ impl vec3d {
 
 fn main() {
 //fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, scan_length: f64, off_length: f64, beam_size: f64, bin_data: &bindata, zmin: f64, zmax: f64, photon_count: i32) -> Vec<scan> {
+  let x = 0.0;
+  let y = 0.0;
+  let theta = 0.0;
+  let phi = 1.57;
+  let cut_theta = 0.0;
+  let scan_length = 100.0 / 136505500.0;
+  let off_length = 20.0 / 136505500.0;
+  let beam_size = 10.0 / 136505500.0;
+  let photon_count = 1000;
   let xbindensity = 10000;
   let ybindensity = 100;
-  let file_name = "test_output.bin";
+  let file_name = "CartAndRad.10000.bin";
     //read in file
     let mut file = match File::open(file_name) {
         Ok(file) => file,
@@ -182,11 +191,19 @@ fn main() {
         let xylen = grid[xbin as usize][ybin as usize].len();
         grid[xbin as usize][ybin as usize].insert(xylen, i as i32);
    }
-
+    synthetic_occultation(x, y, theta, phi, cut_theta, scan_length, off_length, beam_size, bindata
+                          {xmin: xmin,
+                          xmax: xmax,
+                          ymin: ymin,
+                          ymax: ymax,
+                          bin_size: 2e-8,
+                          bins: &grid,
+                          }, zmin, zmax, photon_count); 
 }
 
 
 fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, scan_length: f64, off_length: f64, beam_size: f64, bin_data: &bindata, zmin: f64, zmax: f64, photon_count: i32) -> Vec<scan> {
+    println!("in synth occ");
     let  r_dir:vec3d = vec3d {
         x: theta.cos() * phi.cos(), 
         y: theta.sin() * phi.cos(),
@@ -233,6 +250,7 @@ fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, s
 }
 
 fn ray_grid_intersect(r: ray, bin_data: &bindata, zmin: f64, zmax: f64) -> bool {
+    println!("in ray_grid_intersect");
     let tmin = (zmin - r.r0.z) / r.r.z;
     let tmax = (zmax - r.r0.z) / r.r.z;
     let xmin = r.r0.x + tmin * r.r.x;
@@ -258,7 +276,8 @@ fn ray_grid_intersect(r: ray, bin_data: &bindata, zmin: f64, zmax: f64) -> bool 
 }
 
 fn ray_bin_intersect(r: ray, xbin: i32, ybin: i32, bin_data: &bindata) -> bool {
-        for i in bin_data.bins[xbin as usize][ybin as usize].iter() {
+    println!("in ray_bin_intersect");
+    for i in bin_data.bins[xbin as usize][ybin as usize].iter() {
             if (ray_particle_intersect(&r, i)) {
                 return true;
             }
@@ -267,6 +286,7 @@ fn ray_bin_intersect(r: ray, xbin: i32, ybin: i32, bin_data: &bindata) -> bool {
 }
 
 fn ray_particle_intersect(r: &ray, part: &particle) -> bool {
+    println!("in ray_particle_intersect");
     let p = vec3d{
         x: part.x,
         y: part.y,
