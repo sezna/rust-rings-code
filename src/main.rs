@@ -1,3 +1,5 @@
+/*TODO: handle command line arguments, run the actual occultations*/
+use std::cmp::Ordering;
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
@@ -5,9 +7,9 @@ use std::io::Read;
 extern crate byteorder;
 extern crate rand;
 struct vec3d {
-    x:f32,
-    y:f32,
-    z:f32,
+    x:f64,
+    y:f64,
+    z:f64,
 }
 struct ray {
     r0: vec3d,
@@ -15,45 +17,57 @@ struct ray {
 }
 #[derive(Clone)]
 struct cart {
-    x: f32,
-    y: f32,
-    z: f32,
-    vx: f32,
-    vy: f32,
-    vz: f32,
+    x: f64,
+    y: f64,
+    z: f64,
+    vx: f64,
+    vy: f64,
+    vz: f64,
 }
 
 struct particle {
-    x: f32,
-    y: f32,
-    z: f32,
-    vx: f32,
-    vy: f32,
-    vz: f32,
-    rad: f32,
+    x: f64,
+    y: f64,
+    z: f64,
+    vx: f64,
+    vy: f64,
+    vz: f64,
+    rad: f64,
 }
-
+impl cart {
+    fn to_particle(&self, radius: f64) -> particle{
+        return particle {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            vx: self.vx,
+            vz: self.vz,
+            vy: self.vy,
+            rad: radius,
+        }
+    }
+}
 struct bindata {
-    xmin: f32,
-    xmax: f32,
-    ymin: f32,
-    ymax: f32,
-    bin_size: f32,
-    bins: Vec<Vec<Vec<particle>>>,
+    xmin: f64,
+    xmax: f64,
+    ymin: f64,
+    ymax: f64,
+    bin_size: f64,
+    bins: Vec<Vec<Vec<i32>>>,
 }
 
 struct photon {
-    x: f32,
-    y: f32,
+    x: f64,
+    y: f64,
     hit: bool,
 }
 
 struct scan {
-    sx: f32,
-    sy: f32,
-    ex: f32,
-    ey: f32,
-    intensity: f32,
+    sx: f64,
+    sy: f64,
+    ex: f64,
+    ey: f64,
+    intensity: f64,
     photons: Vec<photon>,
 }
 
@@ -66,7 +80,7 @@ impl ray {
     }
 }
 impl vec3d {
-    fn times(&self, other: f32) -> vec3d {
+    fn times(&self, other: f64) -> vec3d {
         return vec3d {
             x: self.x * other,
             y: self.y * other,
@@ -87,15 +101,25 @@ impl vec3d {
             z: self.z - other.z,
         }
     }
-    fn dot(&self, other: &vec3d) -> f32 {
+    fn dot(&self, other: &vec3d) -> f64 {
         return self.x * other.x + self.y * other.y + self.z * other.z;
     }
 }
 
 fn main() {
+//fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, scan_length: f64, off_length: f64, beam_size: f64, bin_data: &bindata, zmin: f64, zmax: f64, photon_count: i32) -> Vec<scan> {
+  let x = 0.0;
+  let y = 0.0;
+  let theta = 0.0;
+  let phi = 1.57;
+  let cut_theta = 0.0;
+  let scan_length = 100.0 / 136505500.0;
+  let off_length = 20.0 / 136505500.0;
+  let beam_size = 10.0 / 136505500.0;
+  let photon_count = 1000;
   let xbindensity = 10000;
   let ybindensity = 100;
-  let file_name = "test_output.bin";
+  let file_name = "CartAndRad.10000.bin";
     //read in file
     let mut file = match File::open(file_name) {
         Ok(file) => file,
@@ -124,19 +148,21 @@ fn main() {
                 vy: 0.0,
                 vz: 0.0,
             };
-         tmpcart.x = file.read_f32::<LittleEndian>().unwrap();
-         tmpcart.y = file.read_f32::<LittleEndian>().unwrap();
-         tmpcart.z = file.read_f32::<LittleEndian>().unwrap();
-         tmpcart.vx = file.read_f32::<LittleEndian>().unwrap();
-         tmpcart.vy = file.read_f32::<LittleEndian>().unwrap();
-         tmpcart.vz = file.read_f32::<LittleEndian>().unwrap();
+         tmpcart.x = file.read_f64::<LittleEndian>().unwrap();
+         tmpcart.y = file.read_f64::<LittleEndian>().unwrap();
+         tmpcart.z = file.read_f64::<LittleEndian>().unwrap();
+         tmpcart.vx = file.read_f64::<LittleEndian>().unwrap();
+         tmpcart.vy = file.read_f64::<LittleEndian>().unwrap();
+         tmpcart.vz = file.read_f64::<LittleEndian>().unwrap();
          cartesians.push(tmpcart);
     }
-    let mut rads:Vec<f32> = Vec::new();
-    let mut tmprad:f32 = 0.0;
+        println!("first cartesian {}", cartesians[0].x);
+    let mut rads:Vec<f64> = Vec::new();
+    let mut tmprad:f64 = 0.0;
     for i in (1..num) {
-        tmprad = file.read_f32::<LittleEndian>().unwrap();
+        tmprad = file.read_f64::<LittleEndian>().unwrap();
         rads.push(tmprad);
+        println!("{}", i);
     }
 //sizeof int: 4 sizeof cart: 48, sizeof double: 8x
     println!("first cart: x: {} y: {} z: {} vx: {} vy: {} vz: {}", cartesians[0].x,
@@ -166,8 +192,8 @@ fn main() {
    for i in (0..num as usize - 1 as usize) {
         let xlen = grid.len();
         let ylen = grid[0].len();
-        let mut xbin:i32 = ((cartesians[i].x - xmin) * grid.len() as f32 / (xmax - xmin)) as i32;
-        let mut ybin:i32 = ((cartesians[i].y - ymin) * grid[0].len() as f32 / (ymax - ymin)) as i32;
+        let mut xbin:i32 = ((cartesians[i].x - xmin) * grid.len() as f64 / (xmax - xmin)) as i32;
+        let mut ybin:i32 = ((cartesians[i].y - ymin) * grid[0].len() as f64 / (ymax - ymin)) as i32;
         if xbin as usize >= xlen {
             xbin  = xlen as i32 - 1;
         }
@@ -177,11 +203,26 @@ fn main() {
         let xylen = grid[xbin as usize][ybin as usize].len();
         grid[xbin as usize][ybin as usize].insert(xylen, i as i32);
    }
-
+   let mut zvec:Vec<f64> = Vec::new();
+   for i in (0..cartesians.len()) {
+    zvec.push(cartesians[i].z);
+   }
+   zvec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+   let zmin = zvec[100];
+   let zmax = zvec[zvec.len() - 100];
+    synthetic_occultation(x, y, theta, phi, cut_theta, scan_length, off_length, beam_size, &bindata
+                          {xmin: xmin,
+                          xmax: xmax,
+                          ymin: ymin,
+                          ymax: ymax,
+                          bin_size: 2e-8,
+                          bins: grid,
+                          }, zmin, zmax, photon_count, &cartesians, &rads); 
 }
 
 
-fn synthetic_occultation(x: f32, y: f32, theta: f32, phi: f32, cut_theta: f32, scan_length: f32, off_length: f32, beam_size: f32, bin_data: &bindata, zmin: f32, zmax: f32, photon_count: i32) -> Vec<scan> {
+fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, scan_length: f64, off_length: f64, beam_size: f64, bin_data: &bindata, zmin: f64, zmax: f64, photon_count: i32, cartesians: &Vec<cart>, rad: &Vec<f64>) -> Vec<scan> {
+    println!("in synth occ");
     let  r_dir:vec3d = vec3d {
         x: theta.cos() * phi.cos(), 
         y: theta.sin() * phi.cos(),
@@ -189,7 +230,7 @@ fn synthetic_occultation(x: f32, y: f32, theta: f32, phi: f32, cut_theta: f32, s
     };
     let dx = cut_theta.cos();
     let dy = cut_theta.sin();
-    let mut height = 0 as f32;
+    let mut height = 0 as f64;
     if zmin.abs() > zmax {
      height = zmin.abs();   
     }
@@ -200,51 +241,52 @@ fn synthetic_occultation(x: f32, y: f32, theta: f32, phi: f32, cut_theta: f32, s
     let xend = bin_data.xmax - r_dir.x * height;
     let mut mx = xstart;
     let mut ret:Vec<scan> = Vec::new();
-    let mut sx:f32 = 0.0;
-    let mut sy:f32 = 0.0;
-    let mut ex:f32 = 0.0;
-    let mut ey:f32 = 0.0;
+    let mut sx:f64 = 0.0;
+    let mut sy:f64 = 0.0;
+    let mut ex:f64 = 0.0;
+    let mut ey:f64 = 0.0;
     let mut photons:Vec<photon> = Vec::new();
-    let mut t:f32 = 0.0;
-    let mut rx:f32 = 0.0;
-    let mut ry:f32 = 0.0;
+    let mut t:f64 = 0.0;
+    let mut rx:f64 = 0.0;
+    let mut ry:f64 = 0.0;
     while mx < xend {
         sx = mx;
         sy = y + (cut_theta.tan() * (sx - x));
         ex = sx + scan_length * cut_theta.cos();
         ey = y + cut_theta.tan() * (ex - x);
         for i in (1..photon_count) {
-            let t = rand::random::<f32>();
-            let rx = sx + t * (ex - sx) + rand::random::<f32>() * rand::random::<f32>() * beam_size;
-            let ry = sy + t * (ey - sy) + rand::random::<f32>() * rand::random::<f32>() * beam_size;
-            photons.push(photon {x: rx, y: ry, hit: ray_grid_intersect(ray{r0: vec3d{x: rx, y: ry, z: 0 as f32}, r: r_dir.clone()}, bin_data, zmin, zmax)})
+            let t = rand::random::<f64>();
+            let rx = sx + t * (ex - sx) + rand::random::<f64>() * rand::random::<f64>() * beam_size;
+            let ry = sy + t * (ey - sy) + rand::random::<f64>() * rand::random::<f64>() * beam_size;
+            photons.push(photon {x: rx, y: ry, hit: ray_grid_intersect(ray{r0: vec3d{x: rx, y: ry, z: 0 as f64}, r: r_dir.clone()}, bin_data, zmin, zmax, &cartesians, &rad)})
 
         }
     }
-    ret.push(scan{sx: sx, sy: sy, ex: ex, ey: ey, intensity: photons.iter_mut().filter(|p|{!p.hit}).count() as f32 / photon_count as f32, photons:
+    ret.push(scan{sx: sx, sy: sy, ex: ex, ey: ey, intensity: photons.iter_mut().filter(|p|{!p.hit}).count() as f64 / photon_count as f64, photons:
     photons});
     mx = mx + (scan_length + off_length) * cut_theta.cos();
     return ret;
 }
 
-fn ray_grid_intersect(r: ray, bin_data: &bindata, zmin: f32, zmax: f32) -> bool {
+fn ray_grid_intersect(r: ray, bin_data: &bindata, zmin: f64, zmax: f64, cartesians: &Vec<cart>, rad: &Vec<f64>) -> bool {
+    println!("in ray_grid_intersect");
     let tmin = (zmin - r.r0.z) / r.r.z;
     let tmax = (zmax - r.r0.z) / r.r.z;
     let xmin = r.r0.x + tmin * r.r.x;
     let xmax = r.r0.x + tmax * r.r.x;
     let ymin = r.r0.y + tmin * r.r.y;
     let ymax = r.r0.y + tmax * r.r.y;
-    let minxbin = max(((min(xmin, xmax) - bin_data.xmin) / bin_data.bin_size) - 1 as f32, 0 as f32)
+    let minxbin = max(((min(xmin, xmax) - bin_data.xmin) / bin_data.bin_size) - 1 as f64, 0 as f64)
         as i32;
-    let maxxbin = min(((max(xmin, xmax) - bin_data.xmin) / bin_data.bin_size) + 1 as f32,
-    bin_data.bins.len() as f32 - 1 as f32) as i32;
-    let minybin = max(((min(ymin, ymax) - bin_data.ymin) / bin_data.bin_size) - 1 as f32, 0 as f32)
+    let maxxbin = min(((max(xmin, xmax) - bin_data.xmin) / bin_data.bin_size) + 1 as f64,
+    bin_data.bins.len() as f64 - 1 as f64) as i32;
+    let minybin = max(((min(ymin, ymax) - bin_data.ymin) / bin_data.bin_size) - 1 as f64, 0 as f64)
         as i32;
-    let maxybin = min(((max(ymin, ymax) - bin_data.ymin) / bin_data.bin_size) + 1 as f32,
-    bin_data.bins[0].len() as f32 - 1 as f32) as i32;
+    let maxybin = min(((max(ymin, ymax) - bin_data.ymin) / bin_data.bin_size) + 1 as f64,
+    bin_data.bins[0].len() as f64 - 1 as f64) as i32;
     for xbin in (minxbin..maxxbin) {
         for ybin in (minybin..maxybin) {
-            if ray_bin_intersect(r.clone(), xbin, ybin, bin_data) {
+            if ray_bin_intersect(r.clone(), xbin, ybin, bin_data, &cartesians, &rad) {
                 return true;   
             }
         }
@@ -252,9 +294,10 @@ fn ray_grid_intersect(r: ray, bin_data: &bindata, zmin: f32, zmax: f32) -> bool 
     return false;
 }
 
-fn ray_bin_intersect(r: ray, xbin: i32, ybin: i32, bin_data: &bindata) -> bool {
-        for i in bin_data.bins[xbin as usize][ybin as usize].iter() {
-            if (ray_particle_intersect(&r, i)) {
+fn ray_bin_intersect(r: ray, xbin: i32, ybin: i32, bin_data: &bindata, cartesians: &Vec<cart>, rad: &Vec<f64>) -> bool {
+    println!("in ray_bin_intersect");
+    for i in bin_data.bins[xbin as usize][ybin as usize].iter() {
+            if (ray_particle_intersect(&r, &cartesians[*i as usize].to_particle(rad[*i as usize]))) {
                 return true;
             }
         }
@@ -262,6 +305,7 @@ fn ray_bin_intersect(r: ray, xbin: i32, ybin: i32, bin_data: &bindata) -> bool {
 }
 
 fn ray_particle_intersect(r: &ray, part: &particle) -> bool {
+    println!("in ray_particle_intersect");
     let p = vec3d{
         x: part.x,
         y: part.y,
@@ -269,25 +313,25 @@ fn ray_particle_intersect(r: &ray, part: &particle) -> bool {
     };
     let d = vec3d::sub(&r.r0, &p);
     let a = vec3d::dot(&r.r, &r.r);
-    let b = vec3d::dot(&r.r, &d) * 2 as f32;
+    let b = vec3d::dot(&r.r, &d) * 2 as f64;
     let c = vec3d::dot(&d, &d) - part.rad * part.rad;
-    return b * b - 4 as f32 * a * c >= 0 as f32;
+    return b * b - 4 as f64 * a * c >= 0 as f64;
 }
-
+/*
 fn bin_particles (parts: Vec<particle>) -> bindata {
     
     let tmpvec:Vec<Vec<Vec<particle>>> = Vec::new();
     return bindata {
-    xmin: 0 as f32,
-    xmax: 0 as f32,
-    ymin: 0 as f32,
-    ymax: 0 as f32,
-    bin_size: 0 as f32,
+    xmin: 0 as f64,
+    xmax: 0 as f64,
+    ymin: 0 as f64,
+    ymax: 0 as f64,
+    bin_size: 0 as f64,
     bins: tmpvec,
     }
 }
-
-fn min(a: f32, b:f32) -> f32 {
+*/
+fn min(a: f64, b:f64) -> f64 {
     if a < b {
         return a;
     }
@@ -295,7 +339,7 @@ fn min(a: f32, b:f32) -> f32 {
         return b;
     }
 }
-fn max(a: f32, b:f32) -> f32 {
+fn max(a: f64, b:f64) -> f64 {
     if a > b {
         return a;
     }
