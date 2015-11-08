@@ -1,11 +1,14 @@
 /*TODO: handle command line arguments, run the actual occultations*/
+extern crate byteorder;
+extern crate image;
+extern crate rand;
+use image::{ImageBuffer, Rgb};
 use std::cmp::Ordering;
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
 use std::io::Read;
-extern crate byteorder;
-extern crate rand;
+const r_naught: f64 = 136505.5;
 struct vec3D {
     x:f64,
     y:f64,
@@ -162,7 +165,7 @@ fn main() {
     for i in (1..num) {
         tmprad = file.read_f64::<LittleEndian>().unwrap();
         rads.push(tmprad);
-        println!("{}", i);
+       // println!("{}", i);
     }
 //sizeof int: 4 sizeof cart: 48, sizeof double: 8x
     println!("first cart: x: {} y: {} z: {} vx: {} vy: {} vz: {}", cartesians[0].x,
@@ -187,7 +190,7 @@ fn main() {
         ymax = cartesians[i].y
     }
   }
-  println!("xmax: {} ymax: {} xmin: {} ymin: {}", xmax, ymax, xmin, ymin);
+  //println!("xmax: {} ymax: {} xmin: {} ymin: {}", xmax, ymax, xmin, ymin);
     let mut grid:Vec<Vec<Vec<i32>>> = vec![vec![vec![]; ybindensity]; xbindensity];
    for i in (0..num as usize - 1 as usize) {
         let xlen = grid.len();
@@ -261,10 +264,12 @@ fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, s
             photons.push(photon {x: rx, y: ry, hit: ray_grid_intersect(ray{r0: vec3D{x: rx, y: ry, z: 0 as f64}, r: r_dir.clone()}, bin_data, zmin, zmax, &cartesians, &rad)})
 
         }
-    ret.push(scan{sx: sx, sy: sy, ex: ex, ey: ey, intensity: (photons.iter_mut().filter(|p|{!p.hit}).count()) as f64 / photon_count as f64, photons:
+    ret.push(scan{sx: sx, sy: sy, ex: ex , ey: ey, intensity:( (photons.iter_mut().filter(|p|{!p.hit}).count()) as f64 / photon_count as f64), photons:
     photons});
+    println!("sx: {} ex: {}", sx, ex);
     mx = mx + (scan_length + off_length) * cut_theta.cos();
     }
+    draw_to_image(&ret);
     return ret;
 }
 
@@ -284,7 +289,7 @@ fn ray_grid_intersect(r: ray, bin_data: &binData, zmin: f64, zmax: f64, cartesia
         as i32;
     let maxybin = min(((max(ymin, ymax) - bin_data.ymin) / bin_data.bin_size) + 1 as f64,
     bin_data.bins[0].len() as f64 - 1 as f64) as i32;
-    println!("minx: {} miny: {} maxx: {} maxy: {}", minxbin, minybin, maxxbin, maxybin);
+//    println!("minx: {} miny: {} maxx: {} maxy: {}", minxbin, minybin, maxxbin, maxybin);
     for xbin in (minxbin..maxxbin) {
 //      println!("first for");
         for ybin in (maxybin..minybin) {
@@ -316,7 +321,7 @@ fn ray_bin_intersect(r: ray, xbintmp: i32, ybintmp: i32, bin_data: &binData, car
 }
 
 fn ray_particle_intersect(r: &ray, part: &particle) -> bool {
-//    println!("in ray_particle_intersect");
+//   println!("in ray_particle_intersect");
     let p = vec3D{
         x: part.x,
         y: part.y,
@@ -342,6 +347,31 @@ fn bin_particles (parts: Vec<particle>) -> binData {
     }
 }
 */
+//x is avg of sx and ex, y is intensity
+fn draw_to_image(ret: &Vec<scan>) {  
+    let height = 2000;
+    let width = 2000;
+    let mut image = ImageBuffer::<Rgb<u8>>::new(height, width);
+    for x in 0..width {
+        for y in 0..height {
+            image.get_pixel_mut(x as u32, y as u32).data = [255, 255, 255]
+        }
+    }
+    for i in ret.iter() {
+        let mut x = ((i.sx + i.ex) / 2.0);
+        let mut y = (i.intensity * height as f64);
+        println!("x: {} y: {}", x * r_naught, y);
+        if x < 0.0 {
+            x = (-x);   
+        }
+        if y < 0.0 {
+            y = (-y)
+        }
+        image.get_pixel_mut((x * r_naught) as u32, y as u32).data = [255, 0, 0];
+    }
+    image.save("output.png").unwrap();
+
+}
 fn min(a: f64, b:f64) -> f64 {
     if a < b {
         return a;
@@ -357,4 +387,41 @@ fn max(a: f64, b:f64) -> f64 {
     else {
         return b;
     }
+}
+#[test]
+fn test() {
+    let grid:Vec<Vec<Vec<i32>>> = vec![vec![vec![0,1,2,3]; 2]; 2];
+    let particle1= cart {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        vx: 1.0,
+        vy: 1.0,
+        vz: 1.0,
+    };
+    let cartesians:Vec<cart> = vec![particle1; 4];
+    let x = 1.0;
+    let y = 1.0;
+    let zmin = 1.0;
+    let zmax = 1.0;
+    let theta = 0.0;
+    let phi = 1.57;
+    let cut_theta = 0.0;
+    let scan_length = 10.0;
+    let off_length = 0.0;
+    let beam_size = 10.0;
+    let photon_count = 1000;
+    let bin_data = binData {
+    xmin: 1.0,
+    xmax: 1.0,
+    ymin: 1.0,
+    ymax: 1.0,
+    bin_size: 1.0,
+    bins: grid,
+    };
+    let rads:Vec<f64> = vec![2.0, 3.0, 4.0, 5.0];
+    synthetic_occultation(x, y, theta, phi, cut_theta, scan_length, off_length, beam_size,
+                          &bin_data, zmin, zmax, photon_count, &cartesians, &rads);
+//fn synthetic_occultation(x: f64, y: f64, theta: f64, phi: f64, cut_theta: f64, scan_length: f64, off_length: f64, beam_size: f64, bin_data: &binData, zmin: f64, zmax: f64, photon_count: i32) -> Vec<scan> {
+    return;
 }
